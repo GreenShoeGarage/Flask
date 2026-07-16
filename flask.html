@@ -570,6 +570,8 @@ function makeCore(wasm){
     mesh.merge();
     return Manifold.ofMesh(mesh);
   }
+  function mat4(R,t){ t=t||[0,0,0]; return [R[0],R[3],R[6],0, R[1],R[4],R[7],0, R[2],R[5],R[8],0, t[0],t[1],t[2],1]; }
+  function frameTransform(man,pull){ return man.transform(mat4(rotToZ(pull))); }
   function box(min,max){
     const size=[Math.max(1e-4,max[0]-min[0]),Math.max(1e-4,max[1]-min[1]),Math.max(1e-4,max[2]-min[2])];
     return Manifold.cube(size,false).translate(min);
@@ -633,7 +635,7 @@ function makeCore(wasm){
     const mold=blk.subtract(below);
     return { block:mold, partingZ, scaled, blockVol:blk.volume(), cavityVol:below.volume() };
   }
-  return { Manifold, Mesh, V, rotToZ, manifoldFromIndexed, box, pillar, bbox, topVertex, buildTwoPiece, buildOnePiece };
+  return { Manifold, Mesh, V, rotToZ, mat4, frameTransform, manifoldFromIndexed, box, pillar, bbox, topVertex, buildTwoPiece, buildOnePiece };
 }
 
 /* ===================================================================== */
@@ -987,9 +989,7 @@ function partManifoldInMoldFrame(){
   let part;
   try{ part=CORE.manifoldFromIndexed(p.verts, p.tris); }
   catch(e){ throw new Error("The prepared mesh is not watertight enough to build a solid ("+(e.message||e)+"). Fix holes or non-manifold edges in the source STL."); }
-  const R=CORE.rotToZ(STATE.pull);
-  const col=[R[0],R[3],R[6], R[1],R[4],R[7], R[2],R[5],R[8], 0,0,0];
-  const framed=part.transform(col);
+  const framed=CORE.frameTransform(part, STATE.pull);
   return framed;
 }
 function partingZmoldFrame(){
@@ -1190,6 +1190,13 @@ function runSelfTest(){
   const line=(ok,name,extra)=>{ const d=document.createElement("div"); d.className="testline "+(ok?"p":"f"); d.textContent=(ok?"PASS  ":"FAIL  ")+name+(extra?"   "+extra:""); out.appendChild(d); ok?pass++:fail++; };
   try{
     const {Manifold}=CORE; const sphere=Manifold.sphere(10,48); const sphVol=sphere.volume();
+    // frameTransform (Mat4) correctness: the class of bug that made molds degenerate
+    const dimOf=b=>[b.max[0]-b.min[0],b.max[1]-b.min[1],b.max[2]-b.min[2]];
+    const probe=Manifold.cube([60,20,8],false).translate([100,50,0]);
+    const idd=dimOf(CORE.frameTransform(probe,[0,0,1]).boundingBox());
+    line(Math.abs(idd[0]-60)<1e-3&&Math.abs(idd[1]-20)<1e-3&&Math.abs(idd[2]-8)<1e-3,"frameTransform identity is a no-op","dim="+idd.map(x=>x.toFixed(1)).join("x"));
+    const xz=dimOf(CORE.frameTransform(probe,[1,0,0]).boundingBox());
+    line(Math.abs(xz[2]-60)<1e-3&&xz.every(v=>v>1e-6),"frameTransform +X maps X-extent onto Z (no denormal garbage)","Z="+xz[2].toFixed(1));
     const p={shrink:[1.006,1.006,1.006],wall:8,floor:6,ceil:6,flange:8,keyR:3,keyH:3,keyClr:0.3,keyClrZ:0.4,
              sprueThroatR:2.5,sprueCupR:6,mode:"casting",gateR:1.6,ventR:0.7,vents:2,partingZ:0};
     const r=CORE.buildTwoPiece(sphere,p);
