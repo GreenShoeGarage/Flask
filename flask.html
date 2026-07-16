@@ -63,6 +63,7 @@
   a{color:var(--brass-hi)}
 
   /* Layout */
+  [hidden]{display:none!important}
   .app{display:grid; grid-template-rows:auto 1fr auto; height:100vh}
   header.topbar{
     display:flex; align-items:center; gap:14px; padding:8px 14px;
@@ -535,7 +536,7 @@ async function boot(){
     log("boot complete. three r128, manifold-3d 3.5.1");
   }catch(e){
     log("BOOT ERROR:",e && e.stack || e);
-    const b=$("#boot"); b.classList.add("err");
+    const b=$("#boot"); b.hidden=false; const ap=$("#app"); if(ap) ap.hidden=true; b.classList.add("err");
     b.innerHTML='<div class="bw" style="color:var(--danger)">FLASK</div>'+
       '<div class="bs">The geometry engine failed to start.</div>'+
       '<div class="bs mono" style="max-width:520px">'+escapeHTML(String(e && e.message || e))+'</div>'+
