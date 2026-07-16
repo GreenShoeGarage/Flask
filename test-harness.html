@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<!-- FLASK test harness :: test-harness.html :: v1.0.0 -->
+<!--
+  Browser-runnable release-gate harness for FLASK (FI-110).
+  Place next to flask.html and open this file from disk (double-click).
+  It loads flask.html in a hidden iframe, waits for the geometry kernel to
+  boot, then runs the in-app self-test plus DOM and geometry smoke checks.
+  This must show ALL GREEN before any FLASK release. No server, no network.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FLASK Test Harness</title>
+<style>
+  body{margin:0;background:#141619;color:#e7e2d6;font:14px/1.5 "SFMono-Regular",Menlo,Consolas,monospace;padding:20px}
+  h1{font-size:18px;letter-spacing:.2em;color:#e6c68a}
+  #status{margin:10px 0;padding:8px 12px;border-radius:5px;background:#1c1f23;border:1px solid #3a3d42}
+  .p{color:#7fae6b}.f{color:#cf6b52}
+  .line{padding:2px 0;border-bottom:1px dotted #2a2d31}
+  #summary{margin-top:14px;font-size:16px;font-weight:700;padding:10px 12px;border-radius:5px}
+  #summary.ok{background:#1e2b1a;color:#9ccf82;border:1px solid #7fae6b}
+  #summary.bad{background:#2b1a17;color:#e39079;border:1px solid #cf6b52}
+  iframe{position:absolute;left:-9999px;width:900px;height:600px;border:0}
+</style>
+</head>
+<body>
+<h1>FLASK &middot; TEST HARNESS</h1>
+<div id="status">Booting flask.html in a hidden frame...</div>
+<div id="out"></div>
+<div id="summary"></div>
+<iframe id="frame" src="flask.html"></iframe>
+<script>
+const out=document.getElementById("out"), status=document.getElementById("status"), summary=document.getElementById("summary");
+let pass=0, fail=0;
+function line(ok,name,extra){ const d=document.createElement("div"); d.className="line "+(ok?"p":"f"); d.textContent=(ok?"PASS  ":"FAIL  ")+name+(extra?"   "+extra:""); out.appendChild(d); ok?pass++:fail++; }
+function done(){ summary.textContent=(fail?("FAILED: "+fail+" of "+(pass+fail)):("ALL GREEN: "+pass+" checks passed")); summary.className=fail?"bad":"ok"; }
+
+const frame=document.getElementById("frame");
+let waited=0;
+const iv=setInterval(()=>{
+  waited+=100;
+  const w=frame.contentWindow;
+  if(w && w.FLASK && w.FLASK.ready){
+    clearInterval(iv); status.textContent="Kernel ready. Running checks..."; run(w);
+  }else if(waited>25000){
+    clearInterval(iv); status.textContent="flask.html did not become ready within 25s."; line(false,"boot within 25s"); done();
+  }
+},100);
+
+function run(w){
+  try{
+    const doc=frame.contentDocument;
+    // DOM smoke checks
+    line(!!doc.getElementById("viewport"),"viewport canvas present");
+    line(!!doc.getElementById("btnGenerate"),"generate button present");
+    line(doc.querySelector('.plate b') && doc.querySelector('.plate b').textContent==="FLASK","maker's label plate present");
+    line(w.FLASK.version==="1.0.0","reported version 1.0.0", w.FLASK.version);
+    // core present
+    const core=w.FLASK.core();
+    line(!!core && typeof core.buildTwoPiece==="function","mold core exposed");
+
+    // Run the in-app self-test (core geometry assertions)
+    const r=w.FLASK.selfTest();
+    line(r.fail===0,"in-app self-test all passed", r.pass+" checks, "+r.fail+" failed");
+
+    // Independent geometry smoke: build a cube two-piece and confirm manifold halves
+    const M=core.Manifold;
+    const cube=M.cube([24,16,12],true);
+    const res=core.buildTwoPiece(cube,{shrink:[1,1,1],wall:6,floor:5,ceil:5,flange:6,keyR:2.5,keyH:2.5,keyClr:0.3,keyClrZ:0.4,sprueThroatR:2,sprueCupR:5,mode:"casting",gateR:1.4,ventR:0.6,vents:2,partingZ:0});
+    line(res.cope.status()==="NoError" && res.drag.status()==="NoError","cube two-piece halves manifold");
+    line(!res.cope.isEmpty() && !res.drag.isEmpty(),"cube halves non-empty");
+
+    // parse+prep smoke on a tiny binary STL (single tetra-ish will be non-watertight -> just check parse)
+    const buf=makeBinaryCubeSTL(10);
+    const parsed=w.FLASK.parseSTL(buf);
+    line(parsed.format==="binary" && parsed.triCount===12,"binary STL parse (12 tris)", "got "+parsed.triCount);
+    const prep=w.FLASK.prepMesh(parsed.positions, 1e-4);
+    line(prep.report.watertight,"parsed cube is watertight after prep");
+  }catch(e){
+    line(false,"harness threw", e.message);
+    console.error(e);
+  }
+  done();
+}
+
+// minimal binary STL of an axis cube (outward), 12 triangles
+function makeBinaryCubeSTL(s){
+  const V=[[0,0,0],[s,0,0],[s,s,0],[0,s,0],[0,0,s],[s,0,s],[s,s,s],[0,s,s]];
+  const F=[[3,2,1,0],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[3,0,4,7]];
+  const tris=[]; for(const f of F){ tris.push([V[f[0]],V[f[1]],V[f[2]]]); tris.push([V[f[0]],V[f[2]],V[f[3]]]); }
+  const buf=new ArrayBuffer(84+tris.length*50); const dv=new DataView(buf); dv.setUint32(80,tris.length,true); let o=84;
+  for(const t of tris){ o+=12; for(const p of t){ dv.setFloat32(o,p[0],true);dv.setFloat32(o+4,p[1],true);dv.setFloat32(o+8,p[2],true);o+=12; } o+=2; }
+  return buf;
+}
+</script>
+</body>
+</html>
