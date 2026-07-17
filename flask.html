@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLASK :: flask.html :: v1.3.0 -->
+<!-- FLASK :: flask.html :: v1.3.1 -->
 <!--
   FLASK  (Field Instrument FI-110)  -  STL to mold-negative generator
   Copyright (C) 2026  M. B. Parks  (Green Shoe Garage)
@@ -432,7 +432,7 @@
       <div class="plate">
         <div class="rivets"></div>
         <b>FLASK</b><br>
-        FI-110 &middot; <span id="plateVer">v1.3.0</span><br>
+        FI-110 &middot; <span id="plateVer">v1.3.1</span><br>
         GREEN SHOE GARAGE
       </div>
     </div>
@@ -485,7 +485,7 @@
       <input type="checkbox" id="debugToggle" style="width:15px;height:15px"> debug log
     </label>
     <button id="btnLog">Log</button>
-    <span class="ver mono">v1.3.0</span>
+    <span class="ver mono">v1.3.1</span>
   </footer>
 </div>
 
@@ -522,7 +522,7 @@
 
 <script type="module">
 "use strict";
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.3.1";
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 
@@ -745,23 +745,40 @@ function makeCore(wasm){
       }
       feed={axis, sgn, gateAlong, perpC, pz};
     } else {
-      // Casting (gravity pour): funnel sprue on the high point; vertical risers vent trapped air upward.
-      const cup = pillar(p.sprueThroatR, p.sprueCupR, (bmax[2]-top[2])+0.5, top[0],top[1], top[2]-0.25, 48);
-      cavityTool = cavityTool.add(cup); sprueVol = cup.volume();
-      const vp=mesh.vertProperties; const verts=[];
-      for(let i=0;i<vp.length;i+=3) verts.push([vp[i],vp[i+1],vp[i+2]]);
-      verts.sort((a,c)=>c[2]-a[2]);
-      const chosen=[]; const minSep=Math.max(land,(b.max[0]-b.min[0])*0.25);
-      for(const v of verts){
-        if(Math.hypot(v[0]-top[0],v[1]-top[1])<minSep) continue;
-        if(chosen.every(c=>Math.hypot(v[0]-c[0],v[1]-c[1])>=minSep)){ chosen.push(v); if(chosen.length>=(p.vents||2))break; }
+      // Casting (gravity pour): sprue over central cavity material; risers at the outer high points.
+      // Every channel bites `pen` mm into the cavity so it connects solidly, not a 0.25mm kiss.
+      const vp=mesh.vertProperties; const zmax=b.max[2], tol=Math.max(0.05,(b.max[2]-b.min[2])*0.03);
+      const tops=[]; for(let i=0;i<vp.length;i+=3){ if(zmax-vp[i+2]<=tol) tops.push([vp[i],vp[i+1],vp[i+2]]); }
+      if(!tops.length) tops.push(top);
+      const pen=Math.max(1.0, Math.min(3, (b.max[2]-b.min[2])*0.4));
+      // sprue: the top-surface vertex nearest the XY centre -> a central pour that still lands on real material
+      let sxy=tops[0], bd=Infinity;
+      for(const v of tops){ const d=Math.hypot(v[0]-cx,v[1]-cy); if(d<bd){bd=d; sxy=v;} }
+      const cup=pillar(p.sprueThroatR,p.sprueCupR,(bmax[2]-(sxy[2]-pen)), sxy[0],sxy[1], sxy[2]-pen, 48);
+      cavityTool=cavityTool.add(cup); sprueVol=cup.volume();
+      feed={axis:'z', x:sxy[0], y:sxy[1], z0:sxy[2]-pen, z1:bmax[2]};
+      // risers: high points in the upper region, spread from the sprue and each other, biting into the cavity
+      const nv=Math.max(0,p.vents||0);
+      const upper=[]; for(let i=0;i<vp.length;i+=3){ if(vp[i+2]>pz) upper.push([vp[i],vp[i+1],vp[i+2]]); }
+      upper.sort((a,c)=>c[2]-a[2]);
+      const sep=Math.max(land, Math.hypot(b.max[0]-b.min[0],b.max[1]-b.min[1])*0.18);
+      const picked=[];
+      for(const v of upper){
+        if(Math.hypot(v[0]-sxy[0],v[1]-sxy[1])<sep) continue;                 // clear of the sprue
+        if(picked.every(c=>Math.hypot(v[0]-c[0],v[1]-c[1])>=sep)){ picked.push(v); if(picked.length>=nv) break; }
       }
-      for(const v of chosen){
-        const vent=pillar(p.ventR,p.ventR,(bmax[2]-v[2])+0.5, v[0],v[1], v[2]-0.25, 24);
-        const reservoir=pillar(p.ventR*2.2,p.ventR*2.2, p.ventR*3, v[0],v[1], bmax[2]-p.ventR*3-0.5, 24);
-        cavityTool=cavityTool.add(vent).add(reservoir); ventVol+=vent.volume()+reservoir.volume();
+      if(picked.length<nv){                                                    // domed parts: top clusters near the sprue, relax
+        for(const v of upper){
+          if(picked.includes(v)) continue;
+          if(Math.hypot(v[0]-sxy[0],v[1]-sxy[1])>=sep*0.5 && picked.every(c=>Math.hypot(v[0]-c[0],v[1]-c[1])>=sep*0.5)){ picked.push(v); if(picked.length>=nv) break; }
+        }
       }
-      ventCount=chosen.length;
+      for(const bestV of picked){
+        const vent=pillar(p.ventR,p.ventR,(bmax[2]-(bestV[2]-pen)), bestV[0],bestV[1], bestV[2]-pen, 24);
+        const reservoir=pillar(p.ventR*2.2,p.ventR*2.2,p.ventR*3, bestV[0],bestV[1], bmax[2]-p.ventR*3-0.5, 24);
+        cavityTool=cavityTool.add(vent).add(reservoir); ventVol+=vent.volume()+reservoir.volume(); ventCount++;
+        ventInfo.push({axis:'z', x:bestV[0], y:bestV[1], z0:bestV[2]-pen, z1:bmax[2], r:p.ventR});
+      }
     }
 
     let mold = blk.subtract(cavityTool);
