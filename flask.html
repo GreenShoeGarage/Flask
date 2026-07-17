@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLASK :: flask.html :: v1.3.1 -->
+<!-- FLASK :: flask.html :: v1.3.2 -->
 <!--
   FLASK  (Field Instrument FI-110)  -  STL to mold-negative generator
   Copyright (C) 2026  M. B. Parks  (Green Shoe Garage)
@@ -407,7 +407,7 @@
               <div class="field"><label for="ventDepth">Vent depth (mm)</label><input type="number" id="ventDepth" value="0.2" min="0.05" step="0.05"></div>
               <div class="field"><label for="ventWidth">Vent width (mm)</label><input type="number" id="ventWidth" value="4" min="1" step="0.5"></div>
             </div>
-            <div class="why">Injection: a tapered sprue feeds a runner on the parting plane, then a small edge gate into the cavity. The gate leaves the witness mark, so it enters on the part edge facing the gate side you choose here (put it on a non-functional face). Vents are thin slots on the opposite side, full depth on the cavity half, opening through the parting face so the split does not seal them. Vent depth 0.15 to 0.25 mm suits 3D-printed or CNC-aluminium tooling; go thinner only if you can machine it. Gate and vent LOCATION are CAD and flow-analysis calls, this places sensible defaults. See README.</div>
+            <div class="why">Injection: a tapered sprue feeds a runner on the parting plane, then a small edge gate into the cavity. The gate leaves the witness mark, so it enters on the part edge facing the gate side you choose here (put it on a non-functional face). Vents are thin slots on the opposite side, full depth on the cavity half, opening through the parting face so the split does not seal them. Vent depth 0.15 to 0.25 mm suits 3D-printed or CNC-aluminium tooling; go thinner only if you can machine it. Because the slots are so thin they are hard to see on the part, the viewport highlights the sprue, runner, gate and vents in colour (toggle "feed &amp; vents"). Gate and vent LOCATION are CAD and flow-analysis calls, this places sensible defaults. See README.</div>
           </div>
         </div>
       </details>
@@ -432,7 +432,7 @@
       <div class="plate">
         <div class="rivets"></div>
         <b>FLASK</b><br>
-        FI-110 &middot; <span id="plateVer">v1.3.1</span><br>
+        FI-110 &middot; <span id="plateVer">v1.3.2</span><br>
         GREEN SHOE GARAGE
       </div>
     </div>
@@ -485,7 +485,7 @@
       <input type="checkbox" id="debugToggle" style="width:15px;height:15px"> debug log
     </label>
     <button id="btnLog">Log</button>
-    <span class="ver mono">v1.3.1</span>
+    <span class="ver mono">v1.3.2</span>
   </footer>
 </div>
 
@@ -522,7 +522,7 @@
 
 <script type="module">
 "use strict";
-const APP_VERSION = "1.3.1";
+const APP_VERSION = "1.3.2";
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 
@@ -695,7 +695,7 @@ function makeCore(wasm){
     const mesh = scaled.getMesh();
     const top = topVertex(mesh);
     let cavityTool = scaled;
-    let sprueVol=0, ventVol=0, ventCount=0, ventInfo=[], feed=null;
+    let sprueVol=0, ventVol=0, ventCount=0, ventInfo=[], feed=null, feedMarks=[];
 
     if(p.mode==='injection'){
       // Two-plate feed: distinct sprue -> runner (on the parting plane) -> small edge gate into the cavity.
@@ -723,6 +723,9 @@ function makeCore(wasm){
       const gate=rodAxis(p.gateR,p.gateR,gLen,axis, gx2,gy2, pz, 24);
       cavityTool=cavityTool.add(sprue).add(runner).add(gate);
       sprueVol=sprue.volume()+runner.volume()+gate.volume();
+      feedMarks.push({role:'sprue', kind:'cyl', x:sx, y:sy, z0:pz-0.01, z1:pz-0.01+sprueH, r:cupR});
+      feedMarks.push({role:'runner', kind:'bar', axis, a0:Math.min(sprueAlong,runEndAlong), a1:Math.max(sprueAlong,runEndAlong), perp:perpC, z:pz, r:runnerR});
+      feedMarks.push({role:'gate', kind:'bar', axis, a0:Math.min(gInAlong,runEndAlong), a1:Math.max(gInAlong,runEndAlong), perp:perpC, z:pz, r:p.gateR});
 
       // Vents: thin slots on the parting plane, OPPOSITE the gate (where flow fronts converge).
       // Full depth on the cope (cavity) side, crossing the parting plane by eps so the split opens the slot
@@ -742,6 +745,7 @@ function makeCore(wasm){
         const slot=box(bxMin,bxMax);
         cavityTool=cavityTool.add(slot); ventVol+=slot.volume(); ventCount++;
         ventInfo.push({axis, perpV, a0, a1, vw, vd, pz});
+        feedMarks.push({role:'vent', kind:'slot', axis, a0, a1, perp:perpV, z:pz, w:vw, d:vd});
       }
       feed={axis, sgn, gateAlong, perpC, pz};
     } else {
@@ -757,6 +761,7 @@ function makeCore(wasm){
       const cup=pillar(p.sprueThroatR,p.sprueCupR,(bmax[2]-(sxy[2]-pen)), sxy[0],sxy[1], sxy[2]-pen, 48);
       cavityTool=cavityTool.add(cup); sprueVol=cup.volume();
       feed={axis:'z', x:sxy[0], y:sxy[1], z0:sxy[2]-pen, z1:bmax[2]};
+      feedMarks.push({role:'sprue', kind:'cyl', x:sxy[0], y:sxy[1], z0:sxy[2]-pen, z1:bmax[2], r:p.sprueCupR});
       // risers: high points in the upper region, spread from the sprue and each other, biting into the cavity
       const nv=Math.max(0,p.vents||0);
       const upper=[]; for(let i=0;i<vp.length;i+=3){ if(vp[i+2]>pz) upper.push([vp[i],vp[i+1],vp[i+2]]); }
@@ -778,6 +783,7 @@ function makeCore(wasm){
         const reservoir=pillar(p.ventR*2.2,p.ventR*2.2,p.ventR*3, bestV[0],bestV[1], bmax[2]-p.ventR*3-0.5, 24);
         cavityTool=cavityTool.add(vent).add(reservoir); ventVol+=vent.volume()+reservoir.volume(); ventCount++;
         ventInfo.push({axis:'z', x:bestV[0], y:bestV[1], z0:bestV[2]-pen, z1:bmax[2], r:p.ventR});
+        feedMarks.push({role:'riser', kind:'cyl', x:bestV[0], y:bestV[1], z0:bestV[2]-pen, z1:bmax[2], r:p.ventR});
       }
     }
 
@@ -794,7 +800,7 @@ function makeCore(wasm){
       drag = drag.add(boss); bossVolTot+=boss.volume();
       cope = cope.subtract(socket); socketVolTot+=socket.volume();
     }
-    return { cope, drag, partingZ:pz, sprueVol, ventVol, ventCount, ventInfo, feed,
+    return { cope, drag, partingZ:pz, sprueVol, ventVol, ventCount, ventInfo, feed, feedMarks,
              cavityVol: scaled.volume(), keyBossR:p.keyR, keySocketR:p.keyR+p.keyClr,
              bossVol:bossVolTot, socketVol:socketVolTot, bossVolTot, socketVolTot,
              blockVol: blk.volume(), scaled, scaledPart: scaled };
@@ -979,7 +985,7 @@ const STATE = {
 /* ===================================================================== */
 /* Viewport                                                               */
 /* ===================================================================== */
-let scene, camera, renderer, partMesh, planeMesh, pullArrow, moldGroup, gridHelper, target, sph, camUp, needsRender=true;
+let scene, camera, renderer, partMesh, planeMesh, pullArrow, moldGroup, feedGroup, gridHelper, target, sph, camUp, needsRender=true;
 const ISO_PHI=Math.acos(1/Math.sqrt(3)), ISO_THETA=Math.PI/4;
 function initViewport(){
   const canvas=$("#viewport");
@@ -999,6 +1005,7 @@ function initViewport(){
   gridHelper=new THREE.GridHelper(400,20,0x555555,0x333333); gridHelper.rotation.x=Math.PI/2; // XZ -> XY (Z-up ground)
   gridHelper.material.opacity=0.35; gridHelper.material.transparent=true; scene.add(gridHelper);
   moldGroup=new THREE.Group(); scene.add(moldGroup);
+  feedGroup=new THREE.Group(); scene.add(feedGroup);
   wireOrbit(canvas);
   onResize(); addEventListener("resize",onResize);
   applyCamera();
@@ -1062,7 +1069,7 @@ function fitView(bbox){
   STATE._viewBBox=bbox;
 }
 function clearPart(){ if(partMesh){ scene.remove(partMesh); partMesh.geometry.dispose(); partMesh.material.dispose(); partMesh=null; } }
-function clearMold(){ while(moldGroup.children.length){ const m=moldGroup.children.pop(); m.geometry.dispose(); m.material.dispose?.(); } const pt=$("#pieceToggles"); if(pt){ pt.hidden=true; pt.innerHTML=""; } }
+function clearMold(){ while(moldGroup.children.length){ const m=moldGroup.children.pop(); m.geometry.dispose(); m.material.dispose?.(); } clearFeedVents(); const pt=$("#pieceToggles"); if(pt){ pt.hidden=true; pt.innerHTML=""; } }
 function clearPlaneArrow(){ for(const o of [planeMesh,pullArrow]){ if(o){ scene.remove(o); o.geometry?.dispose?.(); } } planeMesh=null; pullArrow=null; }
 
 function showPart(){
@@ -1231,7 +1238,7 @@ function generate(){
       }
       framed.delete?.();
       STATE.pieces=pieces;
-      previewMold(pieces);
+      previewMold(pieces, STATE._resultMeta.r.feedMarks);
       resultReport(p);
       $("#btnExportStl").disabled=false; $("#btnExportSession").disabled=false;
       setKernel("ready","on"); setStatus("Mold generated. "+pieces.length+" piece"+(pieces.length>1?"s":"")+".");
@@ -1255,7 +1262,7 @@ function manToThree(man, color, offset){
   const mesh=new THREE.Mesh(geo,mat); if(offset) mesh.position.set(offset[0],offset[1],offset[2]);
   return mesh;
 }
-function previewMold(pieces){
+function previewMold(pieces, marks){
   clearPart(); clearPlaneArrow(); clearMold();
   $("#vpMode").textContent = pieces.length>1?"MOLD (exploded)":"MOLD (open-face)";
   const cols=[0xb98a55,0x8fa0b0,0xa88f6f];
@@ -1268,14 +1275,43 @@ function previewMold(pieces){
     const bb=bboxes[i];
     for(let k=0;k<3;k++){ bbAll.min[k]=Math.min(bbAll.min[k],bb.min[k]+ (k===2?off[2]:0)); bbAll.max[k]=Math.max(bbAll.max[k],bb.max[k]+(k===2?off[2]:0)); }
   });
-  buildPieceToggles(pieces, cols);
+  drawFeedVents(marks);
+  buildPieceToggles(pieces, cols, !!(marks&&marks.length));
   fitView(bbAll);
 }
+// Highlight the feed (sprue/runner/gate) and vents. The injection vents are thin (~0.2mm) slots that
+// are correct but nearly invisible on the part, so this overlay shows where they are. Drawn at the
+// nominal (unexploded) parting position so it reads clearly between the separated halves.
+function makeFeedMesh(mk){
+  const isVent = mk.role==="vent"||mk.role==="riser";
+  const col = isVent ? 0x22d3ee : 0xffb020;
+  const mat=new THREE.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:0.55, metalness:0, roughness:0.5, transparent:true, opacity:0.92, side:THREE.DoubleSide});
+  let mesh;
+  if(mk.kind==="cyl"){
+    const h=Math.max(0.6, mk.z1-mk.z0);
+    mesh=new THREE.Mesh(new THREE.CylinderGeometry(mk.r,mk.r,h,24), mat);
+    mesh.rotation.x=Math.PI/2; mesh.position.set(mk.x, mk.y, (mk.z0+mk.z1)/2);
+  } else if(mk.kind==="bar"){
+    const L=Math.max(0.6, mk.a1-mk.a0);
+    mesh=new THREE.Mesh(new THREE.CylinderGeometry(mk.r,mk.r,L,20), mat);
+    if(mk.axis==="x"){ mesh.rotation.z=Math.PI/2; mesh.position.set((mk.a0+mk.a1)/2, mk.perp, mk.z); }
+    else { mesh.position.set(mk.perp, (mk.a0+mk.a1)/2, mk.z); }
+  } else { // slot: shown thicker than the real 0.2mm so it is visible
+    const dispD=Math.max(mk.d, 1.0), along=Math.max(0.6, mk.a1-mk.a0);
+    const sx = mk.axis==="x"? along : mk.w, sy = mk.axis==="x"? mk.w : along;
+    mesh=new THREE.Mesh(new THREE.BoxGeometry(sx, sy, dispD), mat);
+    const cx = mk.axis==="x"? (mk.a0+mk.a1)/2 : mk.perp, cy = mk.axis==="x"? mk.perp : (mk.a0+mk.a1)/2;
+    mesh.position.set(cx, cy, mk.z + dispD/2);
+  }
+  return mesh;
+}
+function drawFeedVents(marks){ clearFeedVents(); if(!marks) return; for(const mk of marks) feedGroup.add(makeFeedMesh(mk)); needsRender=true; }
+function clearFeedVents(){ if(!feedGroup) return; while(feedGroup.children.length){ const m=feedGroup.children.pop(); m.geometry.dispose(); m.material.dispose?.(); } }
 const EYE_ON='<svg class="ico-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF='<svg class="ico-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7c2.1 0 3.9.7 5.4 1.6M22 12s-3.5 7-10 7c-2.1 0-3.9-.7-5.4-1.6"/><path d="m3 3 18 18"/></svg>';
 function colToHex(n){ return "#"+(n>>>0).toString(16).padStart(6,"0"); }
 function setPieceVisible(role, on){ const mesh=moldGroup.children.find(m=>m.userData.role===role); if(mesh){ mesh.visible=on; needsRender=true; } }
-function buildPieceToggles(pieces, cols){
+function buildPieceToggles(pieces, cols, hasFeed){
   const boxEl=$("#pieceToggles"); boxEl.innerHTML="";
   if(!pieces || !pieces.length){ boxEl.hidden=true; return; }
   const hdr=document.createElement("div"); hdr.className="hdr"; hdr.textContent="Show / hide"; boxEl.appendChild(hdr);
@@ -1291,6 +1327,18 @@ function buildPieceToggles(pieces, cols){
     });
     boxEl.appendChild(btn);
   });
+  if(hasFeed){
+    const fb=document.createElement("button");
+    fb.type="button"; fb.className="pc-toggle"; fb.setAttribute("aria-pressed","true");
+    fb.dataset.role="__feed__"; fb.title="Toggle feed and vent highlights";
+    fb.innerHTML='<span class="chip" style="background:#22d3ee"></span>'+EYE_ON+EYE_OFF+'<span class="lbl">feed &amp; vents</span>';
+    fb.addEventListener("click",()=>{
+      const now = fb.getAttribute("aria-pressed")!=="true";
+      fb.setAttribute("aria-pressed", now?"true":"false");
+      if(feedGroup){ feedGroup.visible=now; needsRender=true; }
+    });
+    boxEl.appendChild(fb);
+  }
   boxEl.hidden=false;
 }
 function resultReport(p){
