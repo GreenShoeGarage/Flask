@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLASK :: flask.html :: v1.1.0 -->
+<!-- FLASK :: flask.html :: v1.3.0 -->
 <!--
   FLASK  (Field Instrument FI-110)  -  STL to mold-negative generator
   Copyright (C) 2026  M. B. Parks  (Green Shoe Garage)
@@ -104,6 +104,12 @@
   .vp-hint{position:absolute; left:12px; top:10px; font-size:11px; color:var(--ink-dim); background:rgba(0,0,0,.25); padding:3px 8px; border-radius:3px}
   html[data-theme="pattern-shop"] .vp-hint{background:rgba(255,255,255,.35)}
   .vp-modebadge{position:absolute; left:12px; bottom:12px; font-size:11px; color:var(--brass-hi); border:1px solid var(--line-2); background:var(--plate); padding:3px 8px; border-radius:3px; letter-spacing:.08em}
+  .vp-views{position:absolute; left:50%; top:12px; transform:translateX(-50%); display:flex; gap:5px; background:rgba(0,0,0,.32); border:1px solid var(--line-2); border-radius:6px; padding:5px; z-index:2}
+  html[data-theme="pattern-shop"] .vp-views{background:rgba(255,255,255,.45)}
+  .vp-views button{min-height:34px; padding:5px 11px; background:var(--bg-2); border:1px solid var(--line-2); border-radius:4px; color:var(--ink); font:inherit; font-size:12px; letter-spacing:.05em; cursor:pointer}
+  .vp-views button:hover{border-color:var(--brass)}
+  .vp-views button:focus-visible{outline:2px solid var(--brass-hi); outline-offset:2px}
+  .vp-views button[aria-pressed="true"]{background:var(--brass); color:var(--plate); border-color:var(--brass-hi)}
   .vp-inspect{position:absolute; right:12px; top:12px; display:flex; flex-direction:column; gap:6px; background:rgba(0,0,0,.32); border:1px solid var(--line-2); border-radius:6px; padding:8px; max-width:200px}
   html[data-theme="pattern-shop"] .vp-inspect{background:rgba(255,255,255,.45)}
   .vp-inspect .hdr{font-size:10px; letter-spacing:.14em; color:var(--ink-dim); text-transform:uppercase; padding:0 2px 2px}
@@ -380,14 +386,29 @@
           <div class="why">One half gets bosses, the other sockets cut larger by this clearance so the halves seat without binding. The layout is asymmetric so they mate one way only.</div>
           <div class="row">
             <div class="field"><label for="sprueThroat">Sprue throat r (mm)</label><input type="number" id="sprueThroat" value="2.5" min="0.5" step="0.5"></div>
-            <div class="field"><label for="sprueCup">Sprue cup r (mm)</label><input type="number" id="sprueCup" value="6" min="1" step="0.5"></div>
-          </div>
-          <div class="why">A funnel at the cavity high point for gravity pouring. Injection mode uses a narrow gate plus a runner stub instead.</div>
-          <div class="row">
-            <div class="field"><label for="ventR">Vent radius (mm)</label><input type="number" id="ventR" value="0.7" min="0.2" step="0.1"></div>
             <div class="field"><label for="ventCount">Vents</label><input type="number" id="ventCount" value="2" min="0" max="6" step="1"></div>
           </div>
-          <div class="why">Thin channels at other cavity high points let trapped air escape, with small overflow reservoirs to feed shrinkage.</div>
+          <div class="mode-casting">
+            <div class="row">
+              <div class="field"><label for="sprueCup">Sprue cup r (mm)</label><input type="number" id="sprueCup" value="6" min="1" step="0.5"></div>
+              <div class="field"><label for="ventR">Riser radius (mm)</label><input type="number" id="ventR" value="0.7" min="0.2" step="0.1"></div>
+            </div>
+            <div class="why">Casting: a funnel at the cavity high point for gravity pouring; vertical risers vent trapped air upward, with small overflow reservoirs to feed shrinkage.</div>
+          </div>
+          <div class="mode-injection" hidden>
+            <div class="field"><label for="feedSide">Gate side</label>
+              <select id="feedSide"><option value="+x" selected>+X edge</option><option value="-x">-X edge</option><option value="+y">+Y edge</option><option value="-y">-Y edge</option></select>
+            </div>
+            <div class="row">
+              <div class="field"><label for="runnerR">Runner r (mm)</label><input type="number" id="runnerR" value="2" min="0.5" step="0.1"></div>
+              <div class="field"><label for="gateR">Gate r (mm)</label><input type="number" id="gateR" value="0.8" min="0.2" step="0.1"></div>
+            </div>
+            <div class="row">
+              <div class="field"><label for="ventDepth">Vent depth (mm)</label><input type="number" id="ventDepth" value="0.2" min="0.05" step="0.05"></div>
+              <div class="field"><label for="ventWidth">Vent width (mm)</label><input type="number" id="ventWidth" value="4" min="1" step="0.5"></div>
+            </div>
+            <div class="why">Injection: a tapered sprue feeds a runner on the parting plane, then a small edge gate into the cavity. The gate leaves the witness mark, so it enters on the part edge facing the gate side you choose here (put it on a non-functional face). Vents are thin slots on the opposite side, full depth on the cavity half, opening through the parting face so the split does not seal them. Vent depth 0.15 to 0.25 mm suits 3D-printed or CNC-aluminium tooling; go thinner only if you can machine it. Gate and vent LOCATION are CAD and flow-analysis calls, this places sensible defaults. See README.</div>
+          </div>
         </div>
       </details>
 
@@ -401,10 +422,17 @@
       <div class="vp-hint" id="vpHint">Load a master object to begin.</div>
       <div class="vp-modebadge" id="vpMode">EMPTY</div>
       <div class="vp-inspect" id="pieceToggles" role="group" aria-label="Show or hide mold pieces" hidden></div>
+      <div class="vp-views" id="viewBar" role="group" aria-label="Camera views">
+        <button type="button" data-view="reset" aria-pressed="false" title="Reset and re-fit the view">Reset</button>
+        <button type="button" data-view="iso" aria-pressed="false" title="Isometric view">Iso</button>
+        <button type="button" data-view="top" aria-pressed="false" title="Top view (down the pull axis)">Top</button>
+        <button type="button" data-view="front" aria-pressed="false" title="Front view">Front</button>
+        <button type="button" data-view="side" aria-pressed="false" title="Side view">Side</button>
+      </div>
       <div class="plate">
         <div class="rivets"></div>
         <b>FLASK</b><br>
-        FI-110 &middot; <span id="plateVer">v1.1.0</span><br>
+        FI-110 &middot; <span id="plateVer">v1.3.0</span><br>
         GREEN SHOE GARAGE
       </div>
     </div>
@@ -457,7 +485,7 @@
       <input type="checkbox" id="debugToggle" style="width:15px;height:15px"> debug log
     </label>
     <button id="btnLog">Log</button>
-    <span class="ver mono">v1.1.0</span>
+    <span class="ver mono">v1.3.0</span>
   </footer>
 </div>
 
@@ -494,7 +522,7 @@
 
 <script type="module">
 "use strict";
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.3.0";
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 
@@ -564,95 +592,213 @@ async function boot(){
 /* ===================================================================== */
 /* Mold-core geometry (identical to the Node release-gate module)         */
 /* ===================================================================== */
+// This same code is transcribed verbatim into flask.html so the Node gate proves the browser logic.
 function makeCore(wasm){
   const { Manifold, Mesh } = wasm;
   const V = {
+    sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],
+    len:a=>Math.hypot(a[0],a[1],a[2]),
     norm:a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];},
     dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
     cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],
   };
+
+  // Rotation matrix (3x3, row-major) that maps unit vector d -> +Z.
   function rotToZ(d){
-    d=V.norm(d); const c=V.dot(d,[0,0,1]);
+    d=V.norm(d); const z=[0,0,1];
+    const c=V.dot(d,z);
     if(c>0.999999) return [1,0,0, 0,1,0, 0,0,1];
-    if(c<-0.999999) return [1,0,0, 0,-1,0, 0,0,-1];
-    const ax=V.norm(V.cross(d,[0,0,1])); const s=Math.sqrt(1-c*c);
-    const [x,y,z]=ax; const t=1-c;
-    return [ t*x*x+c, t*x*y-s*z, t*x*z+s*y,
-             t*x*y+s*z, t*y*y+c, t*y*z-s*x,
-             t*x*z-s*y, t*y*z+s*x, t*z*z+c ];
+    if(c<-0.999999) return [1,0,0, 0,-1,0, 0,0,-1]; // 180 about X
+    const ax=V.norm(V.cross(d,z)); const s=Math.sqrt(1-c*c);
+    const [x,y,zc]=ax; const t=1-c;
+    // Rodrigues, rotation by angle between d and z about ax (maps d->z)
+    return [
+      t*x*x+c,   t*x*y-s*zc, t*x*zc+s*y,
+      t*x*y+s*zc,t*y*y+c,    t*y*zc-s*x,
+      t*x*zc-s*y,t*y*zc+s*x, t*zc*zc+c
+    ];
   }
+
   function manifoldFromIndexed(vertsF32, trisU32){
-    const mesh=new Mesh({numProp:3,vertProperties:vertsF32,triVerts:trisU32});
+    const mesh = new Mesh({ numProp:3, vertProperties:vertsF32, triVerts:trisU32 });
     mesh.merge();
-    return Manifold.ofMesh(mesh);
+    return Manifold.ofMesh(mesh); // caller wraps in try/catch
   }
-  function mat4(R,t){ t=t||[0,0,0]; return [R[0],R[3],R[6],0, R[1],R[4],R[7],0, R[2],R[5],R[8],0, t[0],t[1],t[2],1]; }
-  function frameTransform(man,pull){ return man.transform(mat4(rotToZ(pull))); }
+
+  // manifold-3d transform() expects a Mat4: 16 numbers, COLUMN-MAJOR 4x4.
+  // Build it from a row-major 3x3 rotation R and an optional translation t.
+  function mat4(R, t){
+    t = t || [0,0,0];
+    return [ R[0],R[3],R[6],0,  R[1],R[4],R[7],0,  R[2],R[5],R[8],0,  t[0],t[1],t[2],1 ];
+  }
+  // Rotate a manifold so the given pull direction maps to +Z (about the origin).
+  function frameTransform(man, pull){ return man.transform(mat4(rotToZ(pull))); }
   function box(min,max){
     const size=[Math.max(1e-4,max[0]-min[0]),Math.max(1e-4,max[1]-min[1]),Math.max(1e-4,max[2]-min[2])];
     return Manifold.cube(size,false).translate(min);
   }
-  function pillar(rLow,rHigh,h,x,y,z0,seg=48){ return Manifold.cylinder(Math.max(1e-3,h),rLow,rHigh,seg,false).translate([x,y,z0]); }
+  // cylinder with base at z0, axis +Z
+  function pillar(rLow,rHigh,h,x,y,z0,seg=48){
+    return Manifold.cylinder(h,rLow,rHigh,seg,false).translate([x,y,z0]);
+  }
   function bbox(man){ const b=man.boundingBox(); return {min:b.min,max:b.max}; }
-  function topVertex(mesh){ const vp=mesh.vertProperties; let best=-Infinity,bi=0; for(let i=0;i<vp.length;i+=3){ if(vp[i+2]>best){best=vp[i+2];bi=i;} } return [vp[bi],vp[bi+1],vp[bi+2]]; }
-  function keyPositions(bmin,bmax,land){
+  function topVertex(mesh){ // max z vertex (x,y,z)
+    const vp=mesh.vertProperties; let best=-Infinity,bi=0;
+    for(let i=0;i<vp.length;i+=3){ if(vp[i+2]>best){best=vp[i+2];bi=i;} }
+    return [vp[bi],vp[bi+1],vp[bi+2]];
+  }
+
+  // Asymmetric key layout in the flange land (outside part silhouette, inside block footprint).
+  function keyPositions(bmin,bmax,pmin,pmax,land){
     const inset=land*0.5;
-    return [ [bmin[0]+inset,bmin[1]+inset], [bmax[0]-inset,bmin[1]+inset*1.6], [bmin[0]+inset,bmax[1]-inset] ];
+    const cands=[
+      [bmin[0]+inset, bmin[1]+inset],
+      [bmax[0]-inset, bmin[1]+inset*1.6], // asymmetric offset -> one-way mating
+      [bmin[0]+inset, bmax[1]-inset],
+    ];
+    return cands;
   }
-  function buildTwoPiece(partZ, p){
-    const scaled=partZ.scale(p.shrink); const b=bbox(scaled);
-    const land=Math.max(p.wall,p.flange);
-    const bmin=[b.min[0]-land,b.min[1]-land,b.min[2]-p.floor];
-    const bmax=[b.max[0]+land,b.max[1]+land,b.max[2]+p.ceil];
-    const partingZ = p.partingZ!=null ? p.partingZ : (b.min[2]+b.max[2])/2;
-    const blk=box(bmin,bmax);
-    const mesh=scaled.getMesh(); const top=topVertex(mesh);
-    let cavityTool=scaled, sprueVol=0, ventVol=0;
-    if(p.mode==="injection"){
-      const gate=pillar(p.gateR,p.gateR,(bmax[2]-top[2])+0.5,top[0],top[1],top[2]-0.25,32);
-      const runner=pillar(p.gateR*1.4,p.gateR*1.4,land*0.9,bmax[0]-land*0.9,top[1],bmax[2]-p.gateR*1.4,32);
-      cavityTool=cavityTool.add(gate).add(runner); sprueVol=gate.volume()+runner.volume();
-    }else{
-      const cup=pillar(p.sprueThroatR,p.sprueCupR,(bmax[2]-top[2])+0.5,top[0],top[1],top[2]-0.25,48);
-      cavityTool=cavityTool.add(cup); sprueVol=cup.volume();
+
+  // horizontal cylinder/cone of length L along axis 'x' or 'y', centered at (cx,cy,cz)
+  function rodAxis(rLow,rHigh,L,axis,cx,cy,cz,seg){
+    let c=Manifold.cylinder(Math.max(1e-3,L), rLow, rHigh, seg||32, true); // centered on its own Z axis
+    c = axis==='x' ? c.rotate([0,90,0]) : c.rotate([90,0,0]);              // Z -> X or Z -> Y
+    return c.translate([cx,cy,cz]);
+  }
+  // Extreme part-silhouette coordinate along a feed axis, within a perpendicular band.
+  // axis 'x': min/max X among verts with |y-bandC|<=bandH.  axis 'y': min/max Y among verts with |x-bandC|<=bandH.
+  function silhouetteEdge(mesh, axis, bandC, bandH, wantMax){
+    const vp=mesh.vertProperties; let best=wantMax?-Infinity:Infinity;
+    for(let i=0;i<vp.length;i+=3){
+      const along = axis==='x'? vp[i] : vp[i+1];
+      const perp  = axis==='x'? vp[i+1] : vp[i];
+      if(Math.abs(perp-bandC)>bandH) continue;
+      best = wantMax? Math.max(best,along) : Math.min(best,along);
     }
-    const vp=mesh.vertProperties; const verts=[];
-    for(let i=0;i<vp.length;i+=3) verts.push([vp[i],vp[i+1],vp[i+2]]);
-    verts.sort((a,c)=>c[2]-a[2]);
-    const chosen=[]; const minSep=Math.max(land,(b.max[0]-b.min[0])*0.25);
-    for(const v of verts){
-      if(Math.hypot(v[0]-top[0],v[1]-top[1])<minSep) continue;
-      if(chosen.every(c=>Math.hypot(v[0]-c[0],v[1]-c[1])>=minSep)){ chosen.push(v); if(chosen.length>=(p.vents||0))break; }
+    return isFinite(best)? best : bandC;
+  }
+
+  // params: {shrink:[sx,sy,sz], wall, floor, ceil, flange, keyR, keyH, keyClr, keyClrZ,
+  //   mode:'casting'|'injection', partingZ,
+  //   casting: sprueThroatR, sprueCupR, ventR, vents
+  //   injection: sprueThroatR, sprueTaperDeg, runnerR, gateR, ventDepth, ventWidth, vents, feedSide:'+x'|'-x'|'+y'|'-y'}
+  function buildTwoPiece(partZ, params){
+    const p = params;
+    const scaled = partZ.scale(p.shrink);
+    const b = bbox(scaled);
+    const land = Math.max(p.wall, p.flange);
+    const bmin=[b.min[0]-land, b.min[1]-land, b.min[2]-p.floor];
+    const bmax=[b.max[0]+land, b.max[1]+land, b.max[2]+p.ceil];
+    const pz = p.partingZ!=null ? p.partingZ : (b.min[2]+b.max[2])/2;
+    let blk = box(bmin,bmax);
+    const cx=(b.min[0]+b.max[0])/2, cy=(b.min[1]+b.max[1])/2;
+    const mesh = scaled.getMesh();
+    const top = topVertex(mesh);
+    let cavityTool = scaled;
+    let sprueVol=0, ventVol=0, ventCount=0, ventInfo=[], feed=null;
+
+    if(p.mode==='injection'){
+      // Two-plate feed: distinct sprue -> runner (on the parting plane) -> small edge gate into the cavity.
+      const side=p.feedSide||'+x'; const axis=(side[1]==='x')?'x':'y'; const sgn=(side[0]==='-')?-1:1;
+      const pos=(along,perp)=> axis==='x'? [along,perp] : [perp,along];
+      const perpC = axis==='x'? cy : cx;
+      const bandH = Math.max((p.gateR||0.8)*3, 4);
+      const gateAlong = silhouetteEdge(mesh, axis, perpC, bandH, sgn>0);   // real part edge on the feed side
+      // tapered sprue (released upward): throat at the parting plane, wider at the nozzle
+      const sprueH=(bmax[2]-pz)+0.5; const taper=Math.tan(((p.sprueTaperDeg!=null?p.sprueTaperDeg:1.5))*Math.PI/180);
+      const throatR=p.sprueThroatR, cupR=throatR+sprueH*taper;
+      const sprueAlong=gateAlong + sgn*(land*0.55);
+      const [sx,sy]=pos(sprueAlong,perpC);
+      const sprue=pillar(throatR,cupR,sprueH, sx,sy, pz-0.01, 48);
+      // runner along the parting plane (full-round, centred on pz so it splits into both plates)
+      const runnerR=p.runnerR, gateLand=Math.max(1.2,runnerR);
+      const runEndAlong=gateAlong + sgn*gateLand;
+      const runMid=(sprueAlong+runEndAlong)/2, runLen=Math.abs(sprueAlong-runEndAlong)+runnerR;
+      const [rx,ry]=pos(runMid,perpC);
+      const runner=rodAxis(runnerR,runnerR,runLen,axis, rx,ry, pz, 32);
+      // small edge gate: bridges the runner into the cavity at the parting line (the witness mark lives here)
+      const gInAlong=gateAlong - sgn*1.0;                    // 1 mm into the cavity so the void connects
+      const gMid=(gInAlong+runEndAlong)/2, gLen=Math.abs(gInAlong-runEndAlong);
+      const [gx2,gy2]=pos(gMid,perpC);
+      const gate=rodAxis(p.gateR,p.gateR,gLen,axis, gx2,gy2, pz, 24);
+      cavityTool=cavityTool.add(sprue).add(runner).add(gate);
+      sprueVol=sprue.volume()+runner.volume()+gate.volume();
+
+      // Vents: thin slots on the parting plane, OPPOSITE the gate (where flow fronts converge).
+      // Full depth on the cope (cavity) side, crossing the parting plane by eps so the split opens the slot
+      // (not a sealed pocket); reaching from the cavity out through the block wall so air escapes.
+      const eps=0.03, vd=p.ventDepth, vw=p.ventWidth, nv=Math.max(1,p.vents||2), vsgn=-sgn;
+      const perpMin=axis==='x'? b.min[1]: b.min[0], perpMax=axis==='x'? b.max[1]: b.max[0];
+      const lo=perpMin+0.15*(perpMax-perpMin), hi=perpMax-0.15*(perpMax-perpMin);
+      const oppBlock = vsgn>0 ? (axis==='x'?bmax[0]:bmax[1]) : (axis==='x'?bmin[0]:bmin[1]);
+      for(let i=0;i<nv;i++){
+        const perpV = nv===1? (lo+hi)/2 : lo + i/(nv-1)*(hi-lo);
+        const edge=silhouetteEdge(mesh, axis, perpV, vw*0.6, vsgn>0);      // real part edge at this vent
+        const innerAlong=edge - vsgn*2.0;                                  // 2 mm into the solid -> guaranteed connection
+        const outerAlong=oppBlock + vsgn*0.02;                             // just through the outer wall
+        const a0=Math.min(innerAlong,outerAlong), a1=Math.max(innerAlong,outerAlong);
+        const bxMin = axis==='x'? [a0,perpV-vw/2,pz-eps] : [perpV-vw/2,a0,pz-eps];
+        const bxMax = axis==='x'? [a1,perpV+vw/2,pz+vd] : [perpV+vw/2,a1,pz+vd];
+        const slot=box(bxMin,bxMax);
+        cavityTool=cavityTool.add(slot); ventVol+=slot.volume(); ventCount++;
+        ventInfo.push({axis, perpV, a0, a1, vw, vd, pz});
+      }
+      feed={axis, sgn, gateAlong, perpC, pz};
+    } else {
+      // Casting (gravity pour): funnel sprue on the high point; vertical risers vent trapped air upward.
+      const cup = pillar(p.sprueThroatR, p.sprueCupR, (bmax[2]-top[2])+0.5, top[0],top[1], top[2]-0.25, 48);
+      cavityTool = cavityTool.add(cup); sprueVol = cup.volume();
+      const vp=mesh.vertProperties; const verts=[];
+      for(let i=0;i<vp.length;i+=3) verts.push([vp[i],vp[i+1],vp[i+2]]);
+      verts.sort((a,c)=>c[2]-a[2]);
+      const chosen=[]; const minSep=Math.max(land,(b.max[0]-b.min[0])*0.25);
+      for(const v of verts){
+        if(Math.hypot(v[0]-top[0],v[1]-top[1])<minSep) continue;
+        if(chosen.every(c=>Math.hypot(v[0]-c[0],v[1]-c[1])>=minSep)){ chosen.push(v); if(chosen.length>=(p.vents||2))break; }
+      }
+      for(const v of chosen){
+        const vent=pillar(p.ventR,p.ventR,(bmax[2]-v[2])+0.5, v[0],v[1], v[2]-0.25, 24);
+        const reservoir=pillar(p.ventR*2.2,p.ventR*2.2, p.ventR*3, v[0],v[1], bmax[2]-p.ventR*3-0.5, 24);
+        cavityTool=cavityTool.add(vent).add(reservoir); ventVol+=vent.volume()+reservoir.volume();
+      }
+      ventCount=chosen.length;
     }
-    for(const v of chosen){
-      const vent=pillar(p.ventR,p.ventR,(bmax[2]-v[2])+0.5,v[0],v[1],v[2]-0.25,24);
-      const reservoir=pillar(p.ventR*2.2,p.ventR*2.2,p.ventR*3,v[0],v[1],bmax[2]-p.ventR*3-0.5,24);
-      cavityTool=cavityTool.add(vent).add(reservoir); ventVol+=vent.volume()+reservoir.volume();
-    }
-    let mold=blk.subtract(cavityTool);
-    const parts=mold.splitByPlane([0,0,1],partingZ);
-    let cope=parts[0], drag=parts[1];
-    const keys=keyPositions(bmin,bmax,land); let bossVol=0, socketVol=0;
+
+    let mold = blk.subtract(cavityTool);
+    let parts = mold.splitByPlane([0,0,1], pz);
+    let cope = parts[0], drag = parts[1]; // cope above, drag below
+
+    // registration keys: boss up from drag, socket into cope (asymmetric -> one-way mating)
+    const keys = keyPositions(bmin,bmax,b.min,b.max,land);
+    let bossVolTot=0, socketVolTot=0;
     for(const [kx,ky] of keys){
-      const boss=pillar(p.keyR,p.keyR*0.9,p.keyH,kx,ky,partingZ,32);
-      const socket=pillar(p.keyR+p.keyClr,p.keyR+p.keyClr,p.keyH+(p.keyClrZ!=null?p.keyClrZ:0.4),kx,ky,partingZ-0.01,32);
-      drag=drag.add(boss); bossVol+=boss.volume();
-      cope=cope.subtract(socket); socketVol+=socket.volume();
+      const boss = pillar(p.keyR,p.keyR*0.9, p.keyH, kx,ky, pz, 32);
+      const socket = pillar(p.keyR+p.keyClr, p.keyR+p.keyClr, p.keyH+p.keyClrZ, kx,ky, pz-0.01, 32);
+      drag = drag.add(boss); bossVolTot+=boss.volume();
+      cope = cope.subtract(socket); socketVolTot+=socket.volume();
     }
-    return { cope, drag, partingZ, sprueVol, ventVol, ventCount:chosen.length, scaled,
-             keyBossR:p.keyR, keySocketR:p.keyR+p.keyClr, bossVol, socketVol, blockVol:blk.volume() };
+    return { cope, drag, partingZ:pz, sprueVol, ventVol, ventCount, ventInfo, feed,
+             cavityVol: scaled.volume(), keyBossR:p.keyR, keySocketR:p.keyR+p.keyClr,
+             bossVol:bossVolTot, socketVol:socketVolTot, bossVolTot, socketVolTot,
+             blockVol: blk.volume(), scaled, scaledPart: scaled };
   }
-  function buildOnePiece(partZ, p){
-    const scaled=partZ.scale(p.shrink); const b=bbox(scaled);
-    const partingZ=p.partingZ!=null?p.partingZ:(b.min[2]+b.max[2])/2;
+
+  function buildOnePiece(partZ, params){
+    const p=params; const scaled=partZ.scale(p.shrink);
+    const b=bbox(scaled);
+    const partingZ = p.partingZ!=null ? p.partingZ : (b.min[2]+b.max[2])/2;
     const land=Math.max(p.wall,p.flange);
-    const below=scaled.trimByPlane([0,0,-1],-partingZ);
-    const blk=box([b.min[0]-land,b.min[1]-land,b.min[2]-p.floor],[b.max[0]+land,b.max[1]+land,partingZ]);
-    const mold=blk.subtract(below);
-    return { block:mold, partingZ, scaled, blockVol:blk.volume(), cavityVol:below.volume() };
+    const below = scaled.trimByPlane([0,0,-1], -partingZ); // keep z<=partingZ
+    const bmin=[b.min[0]-land, b.min[1]-land, b.min[2]-p.floor];
+    const bmax=[b.max[0]+land, b.max[1]+land, partingZ];
+    const blk=box(bmin,bmax);
+    const mold = blk.subtract(below);
+    return { block:mold, partingZ, cavityVol: below.volume(), blockVol:blk.volume(), scaledPart:scaled };
   }
+
   return { Manifold, Mesh, V, rotToZ, mat4, frameTransform, manifoldFromIndexed, box, pillar, bbox, topVertex, buildTwoPiece, buildOnePiece };
 }
+
 
 /* ===================================================================== */
 /* STL parsing (ASCII + binary), all in-browser                          */
@@ -816,7 +962,8 @@ const STATE = {
 /* ===================================================================== */
 /* Viewport                                                               */
 /* ===================================================================== */
-let scene, camera, renderer, partMesh, planeMesh, pullArrow, moldGroup, gridHelper, target, sph, needsRender=true;
+let scene, camera, renderer, partMesh, planeMesh, pullArrow, moldGroup, gridHelper, target, sph, camUp, needsRender=true;
+const ISO_PHI=Math.acos(1/Math.sqrt(3)), ISO_THETA=Math.PI/4;
 function initViewport(){
   const canvas=$("#viewport");
   renderer=new THREE.WebGLRenderer({canvas, antialias:true, preserveDrawingBuffer:false});
@@ -825,14 +972,15 @@ function initViewport(){
   const cssBg=getComputedStyle(document.documentElement).getPropertyValue("--viewport").trim()||"#0f1113";
   scene.background=new THREE.Color(cssBg);
   camera=new THREE.PerspectiveCamera(45,1,0.05,100000);
-  camera.position.set(120,90,160);
   target=new THREE.Vector3(0,0,0);
-  sph={r:250,theta:0.9,phi:0.9}; // spherical camera around target
+  camUp=new THREE.Vector3(0,0,1);                 // Z is up: pull axis vertical, parting plane horizontal
+  sph={r:250, theta:ISO_THETA, phi:ISO_PHI};      // spherical camera around target (phi measured from +Z)
   scene.add(new THREE.AmbientLight(0xffffff,0.55));
   scene.add(new THREE.HemisphereLight(0xcbd6e6,0x2a2620,0.55));
-  const d1=new THREE.DirectionalLight(0xffffff,0.9); d1.position.set(1,1.4,0.8); scene.add(d1);
-  const d2=new THREE.DirectionalLight(0xbcae8f,0.35); d2.position.set(-1,-0.4,-0.7); scene.add(d2);
-  gridHelper=new THREE.GridHelper(400,20,0x555555,0x333333); gridHelper.material.opacity=0.35; gridHelper.material.transparent=true; scene.add(gridHelper);
+  const d1=new THREE.DirectionalLight(0xffffff,0.9); d1.position.set(0.7,0.9,1.3); scene.add(d1);
+  const d2=new THREE.DirectionalLight(0xbcae8f,0.35); d2.position.set(-0.7,-0.5,-0.5); scene.add(d2);
+  gridHelper=new THREE.GridHelper(400,20,0x555555,0x333333); gridHelper.rotation.x=Math.PI/2; // XZ -> XY (Z-up ground)
+  gridHelper.material.opacity=0.35; gridHelper.material.transparent=true; scene.add(gridHelper);
   moldGroup=new THREE.Group(); scene.add(moldGroup);
   wireOrbit(canvas);
   onResize(); addEventListener("resize",onResize);
@@ -841,14 +989,31 @@ function initViewport(){
 }
 function applyCamera(){
   const {r,theta,phi}=sph;
-  const st=Math.max(0.02,Math.min(Math.PI-0.02,phi));
+  const st=Math.max(0.0005,Math.min(Math.PI-0.0005,phi));
   camera.position.set(
     target.x + r*Math.sin(st)*Math.cos(theta),
-    target.y + r*Math.cos(st),
-    target.z + r*Math.sin(st)*Math.sin(theta)
+    target.y + r*Math.sin(st)*Math.sin(theta),
+    target.z + r*Math.cos(st)
   );
+  camera.up.copy(camUp);
   camera.lookAt(target); needsRender=true;
 }
+// Preset camera views. reset re-fits the current content; the rest reorient only (keep zoom/pan).
+function setView(name){
+  if(name==="reset"){
+    if(STATE._viewBBox){ fitView(STATE._viewBBox); }
+    else { target.set(0,0,0); sph.r=250; sph.theta=ISO_THETA; sph.phi=ISO_PHI; camUp.set(0,0,1); applyCamera(); }
+    markView("reset"); return;
+  }
+  camUp.set(0,0,1);
+  if(name==="iso"){ sph.theta=ISO_THETA; sph.phi=ISO_PHI; }
+  else if(name==="front"){ sph.theta=Math.PI/2; sph.phi=Math.PI/2; }   // look along -Y (XZ face), Z up
+  else if(name==="side"){ sph.theta=0; sph.phi=Math.PI/2; }            // look along -X (YZ face), Z up
+  else if(name==="top"){ sph.theta=Math.PI/2; sph.phi=0.0002; camUp.set(0,1,0); } // look down -Z onto the parting/cavity
+  applyCamera(); markView(name);
+}
+function markView(name){ $$("#viewBar button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.view===name?"true":"false")); }
+function clearViewMark(){ $$("#viewBar button").forEach(b=>b.setAttribute("aria-pressed","false")); }
 function onResize(){
   const w=$(".viewport-wrap").clientWidth, h=$(".viewport-wrap").clientHeight;
   if(!w||!h) return; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); needsRender=true;
@@ -858,7 +1023,11 @@ function wireOrbit(canvas){
   canvas.addEventListener("pointerdown",e=>{ canvas.setPointerCapture(e.pointerId); lx=e.clientX; ly=e.clientY; mode=(e.button===2||e.shiftKey)?"pan":"orbit"; e.preventDefault(); });
   canvas.addEventListener("pointermove",e=>{
     if(!mode) return; const dx=e.clientX-lx, dy=e.clientY-ly; lx=e.clientX; ly=e.clientY;
-    if(mode==="orbit"){ sph.theta-=dx*0.01; sph.phi-=dy*0.01; }
+    if(mode==="orbit"){
+      camUp.set(0,0,1); clearViewMark();
+      sph.theta-=dx*0.01; sph.phi-=dy*0.01;
+      sph.phi=Math.max(0.12, Math.min(Math.PI-0.12, sph.phi)); // keep Z-up stable, away from the gimbal poles
+    }
     else{ const panScale=sph.r*0.0016; const right=new THREE.Vector3().subVectors(camera.position,target).cross(camera.up).normalize();
       const up=camera.up.clone().normalize(); target.addScaledVector(right,-dx*panScale); target.addScaledVector(up,dy*panScale); }
     applyCamera();
@@ -871,8 +1040,9 @@ function fitView(bbox){
   const c=[(bbox.min[0]+bbox.max[0])/2,(bbox.min[1]+bbox.max[1])/2,(bbox.min[2]+bbox.max[2])/2];
   target.set(c[0],c[1],c[2]);
   const size=Math.max(bbox.max[0]-bbox.min[0],bbox.max[1]-bbox.min[1],bbox.max[2]-bbox.min[2],1);
-  sph.r=size*2.4; sph.theta=0.9; sph.phi=0.95; applyCamera();
-  gridHelper.position.set(c[0],bbox.min[1],c[2]); const g=Math.ceil(size*2/20)*20; gridHelper.scale.setScalar(Math.max(1,g/400));
+  sph.r=size*2.4; sph.theta=ISO_THETA; sph.phi=ISO_PHI; camUp.set(0,0,1); applyCamera();
+  gridHelper.position.set(c[0],c[1],bbox.min[2]); const g=Math.ceil(size*2/20)*20; gridHelper.scale.setScalar(Math.max(1,g/400));
+  STATE._viewBBox=bbox;
 }
 function clearPart(){ if(partMesh){ scene.remove(partMesh); partMesh.geometry.dispose(); partMesh.material.dispose(); partMesh=null; } }
 function clearMold(){ while(moldGroup.children.length){ const m=moldGroup.children.pop(); m.geometry.dispose(); m.material.dispose?.(); } const pt=$("#pieceToggles"); if(pt){ pt.hidden=true; pt.innerHTML=""; } }
@@ -992,8 +1162,10 @@ function readParams(){
     shrink:shrinkFactors(),
     wall:+$("#wall").value, floor:+$("#floor").value, ceil:+$("#ceil").value, flange:+$("#flange").value,
     keyR:+$("#keyR").value, keyH:+$("#keyH").value, keyClr:+$("#keyClr").value, keyClrZ:0.4,
-    sprueThroatR:+$("#sprueThroat").value, sprueCupR:+$("#sprueCup").value,
-    mode: STATE.process, gateR:+$("#sprueThroat").value*0.6, ventR:+$("#ventR").value, vents:+$("#ventCount").value
+    mode: STATE.process, vents:+$("#ventCount").value,
+    sprueThroatR:+$("#sprueThroat").value, sprueCupR:+$("#sprueCup").value, ventR:+$("#ventR").value,
+    runnerR:+$("#runnerR").value, gateR:+$("#gateR").value, sprueTaperDeg:1.5,
+    ventDepth:+$("#ventDepth").value, ventWidth:+$("#ventWidth").value, feedSide:$("#feedSide").value
   };
 }
 
@@ -1115,12 +1287,13 @@ function resultReport(p){
   });
   let matHtml="";
   if(meta.type==="two"){
-    const r=meta.r; const cav=r.scaled.volume(); const ml=(cav+r.sprueVol+r.ventVol)/1000;
+    const r=meta.r; const inj=STATE.process==="injection"; const cav=r.scaled.volume(); const ml=(cav+r.sprueVol+r.ventVol)/1000;
     matHtml='<dl class="readout"><dt>Cavity volume</dt><dd class="mono">'+(cav/1000).toFixed(1)+' ml</dd>'+
-      '<dt>+ sprue &amp; vents</dt><dd class="mono">'+((r.sprueVol+r.ventVol)/1000).toFixed(2)+' ml</dd>'+
-      '<dt>Approx. per pour</dt><dd class="mono">'+ml.toFixed(1)+' ml (~'+(ml*density).toFixed(0)+' g resin)</dd>'+
+      '<dt>'+(inj?"+ sprue, runner, gate":"+ sprue &amp; risers")+'</dt><dd class="mono">'+(r.sprueVol/1000).toFixed(2)+' ml</dd>'+
+      '<dt>'+(inj?"+ vent slots":"+ risers &amp; reservoirs")+'</dt><dd class="mono">'+(r.ventVol/1000).toFixed(2)+' ml</dd>'+
+      '<dt>Approx. per shot/pour</dt><dd class="mono">'+ml.toFixed(1)+' ml (~'+(ml*density).toFixed(0)+' g resin)</dd>'+
       '<dt>Registration keys</dt><dd class="mono">3 (boss r'+r.keyBossR+' / socket r'+r.keySocketR.toFixed(2)+')</dd>'+
-      '<dt>Vents</dt><dd class="mono">'+r.ventCount+'</dd></dl>';
+      '<dt>'+(inj?"Parting-plane vents":"Air risers")+'</dt><dd class="mono">'+r.ventCount+(inj&&r.feed?" &middot; gate on "+r.feed.axis.toUpperCase()+(r.feed.sgn>0?"+":"-")+" edge":"")+'</dd></dl>';
   }else{
     const r=meta.r; const ml=r.cavityVol/1000;
     matHtml='<dl class="readout"><dt>Open-face cavity</dt><dd class="mono">'+ml.toFixed(1)+' ml (~'+(ml*density).toFixed(0)+' g)</dd></dl>';
@@ -1256,6 +1429,16 @@ function runSelfTest(){
     line(one.block.status()==="NoError","one-piece open-face manifold","genus="+one.block.genus());
     const oneCav=one.blockVol-one.block.volume();
     line(Math.abs(oneCav-exp/2)/(exp/2)<0.05,"open-face cavity ~= lower hemisphere");
+    // injection feed system + parting-plane vent connection audit
+    const ip={...p, mode:"injection", sprueThroatR:2, sprueTaperDeg:1.5, runnerR:2, gateR:0.8, ventDepth:0.2, ventWidth:4, feedSide:"+x", vents:2};
+    const ir=CORE.buildTwoPiece(sphere, ip);
+    line(ir.cope.status()==="NoError"&&ir.drag.status()==="NoError","injection halves manifold");
+    line(ir.sprueVol>0&&ir.ventInfo.length===2,"injection sprue/runner/gate + 2 vent slots","feed vol="+ir.sprueVol.toFixed(0));
+    let vok=true;
+    for(const v of ir.ventInfo){ const a0=Math.min(v.a0,v.a1)+1, a1=Math.max(v.a0,v.a1)-1;
+      const probe=CORE.box([a0,v.perpV-v.vw*0.3,v.pz+v.vd*0.25],[a1,v.perpV+v.vw*0.3,v.pz+v.vd*0.75]);
+      if(!(ir.cope.intersect(probe).volume()<probe.volume()*0.05)) vok=false; }
+    line(vok,"injection vents open through to the cavity (connection audit)");
   }catch(e){ line(false,"self-test threw",e.message); log("selftest error",e.stack||e); }
   const head=document.createElement("div"); head.className="testline "+(fail?"f":"p");
   head.style.borderBottom="0"; head.style.marginTop="8px"; head.style.fontWeight="700";
@@ -1339,9 +1522,11 @@ function setMoldType(t){
 function setProcess(p){
   STATE.process=p;
   $$("#processSeg button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.proc===p?"true":"false"));
+  $$(".mode-casting").forEach(el=>el.hidden = p!=="casting");
+  $$(".mode-injection").forEach(el=>el.hidden = p!=="injection");
   $("#procWhy").textContent = p==="casting"
-    ? "Casting: gravity-poured polyurethane. Halves named cope (upper) and drag (lower)."
-    : "Injection (hobby / low volume): a basic gate and runner stub instead of an open funnel. Halves named cavity and core. No ejectors, cooling, hot runners, slides or lifters.";
+    ? "Casting: gravity-poured polyurethane. Halves named cope (upper) and drag (lower). Funnel sprue, vertical air risers."
+    : "Injection (hobby / low volume): tapered sprue, a runner on the parting plane, and a small edge gate into the cavity. Vents are thin parting-plane slots opposite the gate. Halves named cavity and core. No ejectors, cooling, hot runners, slides or lifters.";
 }
 function updatePartingLabel(){
   const s=STATE._partingS; STATE.partingFrac=(+$("#parting").value)/100;
@@ -1382,7 +1567,7 @@ function aboutHTML(){
   '<p><b>FLASK</b> turns a positive (a master object as STL) into a negative (a printable or machinable mold, exported as STL) for gravity-poured polyurethane resin casting and hobby / low-volume plastic injection.</p>'+
   '<p class="mono" style="font-size:12px">Field Instrument FI-110 &middot; version '+APP_VERSION+'</p>'+
   '<h3>Honest scope</h3>'+
-  '<p>FLASK produces the geometric heart of a mold: cavity, parting, shrink compensation, sprue or gate, vents, registration keys and mold walls. Casting mode uses cope (upper) and drag (lower); injection mode uses cavity and core with a basic gate and runner stub. It does <b>not</b> design ejector systems, cooling channels, hot runners, slides, lifters or a mold base. Cores for internal hollows and molds beyond two pieces are out of scope for v1.0.</p>'+
+  '<p>FLASK produces the geometric heart of a mold: cavity, parting, shrink compensation, the feed system, vents, registration keys and mold walls. Casting mode (cope upper, drag lower) uses a funnel sprue with vertical air risers. Injection mode (cavity and core) builds three distinct feed features done properly: a tapered sprue, a runner on the parting plane, and a small edge gate into the cavity, with thin parting-plane vent slots opposite the gate that open through the parting face and are audited to run clear from cavity to block edge. Gate and vent LOCATION remain your CAD and flow-analysis calls. It does <b>not</b> design ejector systems, cooling channels, hot runners, slides, lifters or a mold base. Cores for internal hollows and molds beyond two pieces are out of scope.</p>'+
   '<h3>License</h3>'+
   '<p>GPL-3.0</p>'+
   '<h3>Embedded libraries</h3>'+
@@ -1431,6 +1616,15 @@ function initApp(){
   $("#showPlane").addEventListener("change",e=>{ STATE.showPlane=e.target.checked; drawPartingAndPull(); });
   // generate + export
   $("#btnGenerate").addEventListener("click",generate);
+  // camera view presets
+  $$("#viewBar button").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
+  addEventListener("keydown",e=>{
+    if(e.metaKey||e.ctrlKey||e.altKey) return;
+    if(e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+    const k=e.key.toLowerCase();
+    if(k==="r") setView("reset"); else if(k==="i") setView("iso"); else if(k==="t") setView("top");
+    else if(k==="f") setView("front"); else if(k==="s") setView("side"); else return;
+  });
   $("#btnExportStl").addEventListener("click",exportSTLs);
   $("#btnExportSession").addEventListener("click",exportSession);
   $("#btnImportSession").addEventListener("click",()=>$("#sessionFile").click());
